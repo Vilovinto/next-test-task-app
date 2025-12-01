@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.tasks.white-digital.com"
+const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
+const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "").replace(/\/todos$/, "")
 
 export type TaskStatus = "todo" | "in_progress" | "done"
 
@@ -11,24 +12,11 @@ export interface Task {
   dueDate?: string
 }
 
-export interface LoginPayload {
-  email: string
-  password: string
-}
-
-export interface LoginResponse {
-  token: string
-  user: {
-    id: string
-    email: string
-    name?: string
-  }
-}
-
-export interface RegisterPayload {
-  email: string
-  password: string
-  name?: string
+type JsonPlaceholderTodo = {
+  userId: number
+  id: number
+  title: string
+  completed: boolean
 }
 
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
@@ -51,25 +39,28 @@ async function request<T>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export async function fetchTasks(): Promise<Task[]> {
-  return request<Task[]>("/tasks")
+  const todos = await request<JsonPlaceholderTodo[]>("/todos")
+
+  return todos.map((todo) => ({
+    id: String(todo.id),
+    title: todo.title,
+    description: undefined,
+    status: todo.completed ? "done" : "todo",
+    priority: "medium",
+    dueDate: undefined,
+  }))
 }
 
 export async function fetchTask(id: string): Promise<Task> {
-  return request<Task>(`/tasks/${id}`)
-}
+  const todo = await request<JsonPlaceholderTodo>(`/todos/${id}`)
 
-export async function login(payload: LoginPayload): Promise<LoginResponse> {
-  return request<LoginResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
+  return {
+    id: String(todo.id),
+    title: todo.title,
+    description: undefined,
+    status: todo.completed ? "done" : "todo",
+    priority: "medium",
+    dueDate: undefined,
+  }
 }
-
-export async function register(payload: RegisterPayload): Promise<LoginResponse> {
-  return request<LoginResponse>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
-}
-
 

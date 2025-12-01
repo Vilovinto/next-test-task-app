@@ -1,17 +1,31 @@
 "use client"
 
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useTask } from "@/hooks/useTasks"
+import { useFirebaseUser } from "@/hooks/useFirebaseUser"
 
 export default function TaskDetailsPage() {
+  const router = useRouter()
   const params = useParams<{ id: string }>()
   const id = params?.id
 
+  const { user, loading } = useFirebaseUser()
   const { data, isLoading, isError } = useTask(id)
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [user, loading, router])
+
+  if (loading || !user) {
+    return null
+  }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 py-8">

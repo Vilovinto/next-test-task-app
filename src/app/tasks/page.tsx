@@ -1,18 +1,35 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { signOut } from "firebase/auth"
+
 import { useTasks } from "@/hooks/useTasks"
 import { Button } from "@/components/ui/button"
 import { clearAuthToken } from "@/lib/auth"
+import { useFirebaseUser } from "@/hooks/useFirebaseUser"
+import { firebaseAuth } from "@/lib/firebase"
 
 export default function TasksPage() {
   const router = useRouter()
+  const { user, loading } = useFirebaseUser()
   const { data, isLoading, isError, refetch } = useTasks()
 
-  function handleLogout() {
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login")
+    }
+  }, [user, loading, router])
+
+  async function handleLogout() {
+    await signOut(firebaseAuth)
     clearAuthToken()
     router.push("/login")
+  }
+
+  if (loading || !user) {
+    return null
   }
 
   return (
