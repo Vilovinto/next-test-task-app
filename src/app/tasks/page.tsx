@@ -10,11 +10,17 @@ import { Button } from "@/components/ui/button"
 import { clearAuthToken } from "@/lib/auth"
 import { useFirebaseUser } from "@/hooks/useFirebaseUser"
 import { firebaseAuth } from "@/lib/firebase"
-import { DashboardIcon } from "@/components/icons/dashboard-icon"
-import { SettingsIcon } from "@/components/icons/settings-icon"
 import { cn } from "@/lib/utils"
 import { TaskCard } from "@/components/tasks/task-card"
 import { useUsers } from "@/hooks/useUsers"
+import { Sidebar } from "@/components/layout/sidebar"
+import { DashboardIcon } from "@/components/icons/dashboard-icon"
+import { SettingsIcon } from "@/components/icons/settings-icon"
+import {
+  NewTaskModal,
+  type AssigneeOption,
+  type NewTaskFormValues,
+} from "@/components/tasks/new-task-modal"
 
 type ColumnId = "todo" | "in_progress" | "review" | "completed"
 
@@ -30,17 +36,9 @@ type BoardState = Record<ColumnId, TaskCardData[]>
 
 const BOARD_STORAGE_KEY = "tasks_board_state"
 
-type NewTaskPayload = {
-  title: string
-  description: string
-  dueDate: string
-  assigneeId: string
-}
+type NewTaskPayload = NewTaskFormValues
 
-type Assignee = {
-  id: string
-  name: string
-}
+type Assignee = AssigneeOption
 
 type MoveTaskArgs = {
   fromColumn: ColumnId
@@ -104,7 +102,7 @@ export default function TasksPage() {
             return
           }
         } catch {
-          /* ignore corrupted state */
+          window.localStorage.removeItem(BOARD_STORAGE_KEY)
         }
       }
     }
@@ -272,79 +270,24 @@ export default function TasksPage() {
     })
   }
 
+  const today = new Date()
+  const weekday = today.toLocaleDateString("en-US", { weekday: "long" })
+  const day = today.toLocaleDateString("en-US", { day: "numeric" })
+  const month = today.toLocaleDateString("en-US", { month: "long" })
+  const year = today.getFullYear()
+
   return (
     <div className="flex h-screen bg-[#F7F9FD] overflow-hidden">
-      <aside className="hidden h-full w-[220px] flex-col justify-between border-r bg-white px-7 py-10 md:flex">
-        <div className="space-y-10">
-          <div className="flex items-center gap-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF9F24] text-sm font-medium text-white">
-              C
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-[#121212]">
-              TESTAPP
-            </span>
-          </div>
-
-          <nav className="space-y-4 text-sm">
-            <button className="flex items-center gap-3 text-[#64C882]">
-              <span className="inline-flex h-6 w-6 items-center justify-center">
-                <DashboardIcon />
-              </span>
-              <span>Dashboard</span>
-            </button>
-
-            <button className="flex items-center gap-3 text-[#AAAAAA]">
-              <span className="inline-flex h-6 w-6 items-center justify-center">
-                <SettingsIcon />
-              </span>
-              <span>Setting</span>
-            </button>
-          </nav>
-        </div>
-
-        <div className="relative">
-          <button
-            type="button"
-            onClick={handleToggleUserMenu}
-            className="flex w-full items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4C4C4] text-xs font-medium text-white">
-              {authorInitial}
-            </span>
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-[#000000]">
-                {user.displayName || "User R."}
-              </p>
-              <p className="text-[10px] text-[#AAAAAA]">{user.email}</p>
-            </div>
-          </button>
-
-          {isUserMenuOpen && (
-            <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
-                <button
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                  onClick={() => {
-                    refetchTasks()
-                    setIsUserMenuOpen(false)
-                  }}
-                >
-                  Refresh tasks
-                </button>
-              <button
-                type="button"
-                className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                onClick={() => {
-                  setIsUserMenuOpen(false)
-                  handleLogout()
-                }}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
+      <Sidebar
+        active="tasks"
+        authorInitial={authorInitial}
+        userName={user.displayName || "User R."}
+        userEmail={user.email ?? ""}
+        isUserMenuOpen={isUserMenuOpen}
+        onToggleUserMenu={handleToggleUserMenu}
+        onLogout={handleLogout}
+        onRefreshTasks={refetchTasks}
+      />
 
       <div
         className={cn(
@@ -372,25 +315,31 @@ export default function TasksPage() {
               </button>
             </div>
 
-            {/* Navigation */}
             <nav className="space-y-4 text-sm">
-              <button className="flex items-center gap-3 text-[#64C882]">
+              <Link
+                href="/tasks"
+                className="flex items-center gap-3 text-[#64C882]"
+                onClick={() => setIsMobileNavOpen(false)}
+              >
                 <span className="inline-flex h-6 w-6 items-center justify-center">
                   <DashboardIcon />
                 </span>
                 <span>Dashboard</span>
-              </button>
+              </Link>
 
-              <button className="flex items-center gap-3 text-[#AAAAAA]">
+              <Link
+                href="/settings"
+                className="flex items-center gap-3 text-[#AAAAAA]"
+                onClick={() => setIsMobileNavOpen(false)}
+              >
                 <span className="inline-flex h-6 w-6 items-center justify-center">
                   <SettingsIcon />
                 </span>
                 <span>Setting</span>
-              </button>
+              </Link>
             </nav>
           </div>
 
-          {/* User + actions (такий самий екшн-меню, як у десктопному сайдбарі) */}
           <div className="relative mt-8">
             <button
               type="button"
@@ -437,15 +386,17 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Main content (mobile-first) */}
       <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10">
         <header className="mb-8 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-[20px] font-medium leading-[30px] text-[#121212]">
               My Tasks
             </h1>
-            <p className="mt-1 text-[14px] font-normal leading-[21px] text-[#64C882]">
-              Thursday, 29 May 2025
+            <p className="mt-1 text-[14px] font-normal leading-[21px]">
+              <span className="text-[#64C882]">{weekday}, </span>
+              <span className="text-[#AAAAAA]">
+                {month} {day} {year}
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -474,9 +425,7 @@ export default function TasksPage() {
           </p>
         )}
 
-        {/* Columns */}
         <section className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {/* To do */}
           <div>
             <h2 className="mb-4 text-[16px] font-medium leading-[24px] text-[#121212]">
               To do{" "}
@@ -510,7 +459,6 @@ export default function TasksPage() {
             </div>
           </div>
 
-          {/* In progress */}
           <div>
             <h2 className="mb-4 text-[16px] font-medium leading-[24px] text-[#121212]">
               In progress{" "}
@@ -546,7 +494,6 @@ export default function TasksPage() {
             </div>
           </div>
 
-          {/* Review */}
           <div>
             <h2 className="mb-4 text-[16px] font-medium leading-[24px] text-[#121212]">
               Review{" "}
@@ -582,7 +529,6 @@ export default function TasksPage() {
             </div>
           </div>
 
-          {/* Completed */}
           <div>
             <h2 className="mb-4 text-[16px] font-medium leading-[24px] text-[#121212]">
               Completed{" "}
@@ -631,139 +577,3 @@ export default function TasksPage() {
     </div>
   )
 }
-
-type NewTaskModalProps = {
-  open: boolean
-  assignees: Assignee[]
-  onClose: () => void
-  onSubmit: (values: NewTaskPayload) => void
-}
-
-function NewTaskModal({ open, assignees, onClose, onSubmit }: NewTaskModalProps) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [dueDate, setDueDate] = useState("")
-  const [assigneeId, setAssigneeId] = useState<string>("")
-
-  if (!open) return null
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const trimmedTitle = title.trim()
-    if (!trimmedTitle) return
-
-    const payload: NewTaskPayload = {
-      title: trimmedTitle,
-      description,
-      dueDate,
-      assigneeId: assigneeId || assignees[0]?.id || "",
-    }
-
-    onSubmit(payload)
-    setTitle("")
-    setDescription("")
-    setDueDate("")
-    setAssigneeId("")
-  }
-
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20 px-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
-        <h2 className="text-lg font-semibold text-[#121212]">New task</h2>
-        <p className="mt-1 mb-4 text-sm text-[#888888]">
-          Fill in the details for your new task.
-        </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label
-              htmlFor="new-task-title"
-              className="text-sm font-medium text-[#121212]"
-            >
-              Title
-            </label>
-            <input
-              id="new-task-title"
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              placeholder="Type task title..."
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label
-              htmlFor="new-task-description"
-              className="text-sm font-medium text-[#121212]"
-            >
-              Description
-            </label>
-            <textarea
-              id="new-task-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className="min-h-[96px] w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              placeholder="Describe the task..."
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-1">
-              <label
-                htmlFor="new-task-due-date"
-                className="text-sm font-medium text-[#121212]"
-              >
-                Due date
-              </label>
-              <input
-                id="new-task-due-date"
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor="new-task-assignee"
-                className="text-sm font-medium text-[#121212]"
-              >
-                Assignee
-              </label>
-              <select
-                id="new-task-assignee"
-                value={assigneeId}
-                onChange={(event) => setAssigneeId(event.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">Select contact</option>
-                {assignees.map((assignee) => (
-                  <option key={assignee.id} value={assignee.id}>
-                    {assignee.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" size="sm" disabled={!title.trim()}>
-              Create
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
