@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useRef } from "react"
 
 import { DashboardIcon } from "@/components/icons/dashboard-icon"
 import { SettingsIcon } from "@/components/icons/settings-icon"
@@ -13,7 +14,6 @@ type SidebarProps = {
   isUserMenuOpen: boolean
   onToggleUserMenu: () => void
   onLogout: () => Promise<void> | void
-  onRefreshTasks?: () => void
 }
 
 export function Sidebar({
@@ -24,12 +24,28 @@ export function Sidebar({
   isUserMenuOpen,
   onToggleUserMenu,
   onLogout,
-  onRefreshTasks,
 }: SidebarProps) {
   const dashboardColor =
     active === "tasks" ? "text-[#64C882]" : "text-[#AAAAAA]"
   const settingsColor =
     active === "settings" ? "text-[#64C882]" : "text-[#AAAAAA]"
+
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      if (!isUserMenuOpen) return
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        onToggleUserMenu()
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [isUserMenuOpen, onToggleUserMenu])
 
   return (
     <aside className="hidden h-full w-[220px] flex-col justify-between border-r bg-white px-7 py-10 md:flex">
@@ -66,11 +82,11 @@ export function Sidebar({
         </nav>
       </div>
 
-      <div className="relative">
+      <div ref={menuRef} className="relative">
         <button
           type="button"
           onClick={onToggleUserMenu}
-          className="flex w-full items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
+          className="flex items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4C4C4] text-xs font-medium text-white">
             {authorInitial}
@@ -82,30 +98,21 @@ export function Sidebar({
         </button>
 
         {isUserMenuOpen && (
-          <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
-            {onRefreshTasks && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={onToggleUserMenu} />
+            <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
               <button
                 type="button"
                 className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                onClick={() => {
-                  onRefreshTasks()
+                onClick={async () => {
                   onToggleUserMenu()
+                  await onLogout()
                 }}
               >
-                Refresh tasks
+                Logout
               </button>
-            )}
-            <button
-              type="button"
-              className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-              onClick={async () => {
-                onToggleUserMenu()
-                await onLogout()
-              }}
-            >
-              Logout
-            </button>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </aside>

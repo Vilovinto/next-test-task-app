@@ -17,7 +17,6 @@ import { SettingsIcon } from "@/components/icons/settings-icon"
 export default function SettingsPage() {
   const router = useRouter()
   const { user, loading } = useFirebaseUser()
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
 
   useEffect(() => {
@@ -33,15 +32,19 @@ export default function SettingsPage() {
   const { displayName, email } = user
   const authorInitial = (displayName || email || "U").trim().charAt(0).toUpperCase()
 
+  const totalProfileFields = 2
+  const filledProfileFields =
+    (displayName ? 1 : 0) + (email ? 1 : 0)
+  const profileCompletion = Math.round(
+    (filledProfileFields / totalProfileFields) * 100,
+  )
+
   async function handleLogout() {
     await signOut(firebaseAuth)
     clearAuthToken()
     router.push("/login")
   }
 
-  function handleToggleUserMenu() {
-    setIsUserMenuOpen((prev) => !prev)
-  }
 
   const today = new Date()
   const weekday = today.toLocaleDateString("en-US", { weekday: "long" })
@@ -54,10 +57,10 @@ export default function SettingsPage() {
       <Sidebar
         active="settings"
         authorInitial={authorInitial}
-        userName={user.displayName || "User R."}
-        userEmail={user.email ?? ""}
-        isUserMenuOpen={isUserMenuOpen}
-        onToggleUserMenu={handleToggleUserMenu}
+        userName={displayName || ""}
+        userEmail={email ?? ""}
+        isUserMenuOpen={false}
+        onToggleUserMenu={() => {}}
         onLogout={handleLogout}
       />
 
@@ -111,40 +114,6 @@ export default function SettingsPage() {
               </Link>
             </nav>
           </div>
-
-          <div className="relative mt-8">
-            <button
-              type="button"
-              onClick={handleToggleUserMenu}
-              className="flex w-full items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4C4C4] text-xs font-medium text-white">
-                {authorInitial}
-              </span>
-              <div className="space-y-0.5">
-                <p className="text-xs font-medium text-[#000000]">
-                  {user.displayName || "User R."}
-                </p>
-                <p className="text-[10px] text-[#AAAAAA]">{user.email}</p>
-              </div>
-            </button>
-
-            {isUserMenuOpen && (
-              <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
-                <button
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                  onClick={async () => {
-                    setIsUserMenuOpen(false)
-                    await handleLogout()
-                    setIsMobileNavOpen(false)
-                  }}
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
@@ -154,8 +123,11 @@ export default function SettingsPage() {
             <h1 className="text-[20px] font-medium leading-[30px] text-[#121212]">
               Settings
             </h1>
-            <p className="mt-1 text-[14px] font-normal leading-[21px] text-[#64C882]">
-              {weekday}, {day} {month} {year}
+            <p className="mt-1 text-[14px] font-normal leading-[21px]">
+              <span className="text-[#64C882]">{weekday}, </span>
+              <span className="text-[#AAAAAA]">
+                {month} {day} {year}
+              </span>
             </p>
           </div>
           <div className="flex items-center gap-2 md:hidden">
@@ -181,7 +153,7 @@ export default function SettingsPage() {
                   type="text"
                   placeholder="Type here"
                   className="h-full w-full border-none bg-transparent text-[16px] leading-[24px] text-[#000000] outline-none"
-                  defaultValue={user.displayName ?? ""}
+                  defaultValue={displayName ?? ""}
                 />
               </div>
             </div>
@@ -195,7 +167,7 @@ export default function SettingsPage() {
                   type="email"
                   placeholder="Type here"
                   className="h-full w-full border-none bg-transparent text-[16px] leading-[24px] text-[#666666] outline-none"
-                  defaultValue={user.email ?? ""}
+                  defaultValue={email ?? ""}
                 />
               </div>
             </div>
@@ -217,26 +189,33 @@ export default function SettingsPage() {
           <h2 className="text-[20px] font-medium leading-[30px] text-[#121212]">
             My Profile
           </h2>
-          {user.email && (
-            <p className="mt-1 text-[14px] leading-[21px] text-[#64C882]">
-              {user.email}
-            </p>
-          )}
+          <p className="mt-1 text-[14px] leading-[21px] text-[#64C882]">
+            {profileCompletion}% completed
+          </p>
         </div>
 
         <div className="mt-8 flex flex-col items-center">
           <div className="relative h-[100px] w-[100px]">
-            <div className="absolute inset-[10px] rounded-full bg-[#C4C4C4]" />
-            <div className="absolute inset-0 rounded-full border-[3px] border-[#64C882]" />
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: `conic-gradient(#64C882 ${profileCompletion}%, #F5F6FA ${profileCompletion}% 100%)`,
+              }}
+            />
+            <div className="absolute inset-[12px] flex items-center justify-center rounded-full bg-[#C4C4C4]">
+              <span className="text-[24px] font-medium text-white">
+                {authorInitial}
+              </span>
+            </div>
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-[16px] font-medium leading-[24px] text-[#121212]">
-              {user.displayName || "User"}
+              {displayName || "User"}
             </p>
-            {user.email && (
+            {email && (
               <p className="mt-1 text-[14px] leading-[21px] text-[#AAAAAA]">
-                {user.email}
+                {email}
               </p>
             )}
           </div>

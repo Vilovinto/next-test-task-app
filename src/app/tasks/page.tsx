@@ -20,7 +20,9 @@ import {
   NewTaskModal,
   type AssigneeOption,
   type NewTaskFormValues,
+  type PriorityValue,
 } from "@/components/tasks/new-task-modal"
+import { TaskDetailsModal } from "@/components/tasks/task-details-modal"
 
 type ColumnId = "todo" | "in_progress" | "review" | "completed"
 
@@ -30,6 +32,7 @@ type TaskCardData = {
   description?: string
   dueDate?: string
   assigneeInitial?: string
+  priority?: "low" | "medium" | "high"
 }
 
 type BoardState = Record<ColumnId, TaskCardData[]>
@@ -74,13 +77,14 @@ export default function TasksPage() {
     data: tasksData,
     isLoading,
     isError,
-    refetch: refetchTasks,
   } = useTasks()
   const { data: users } = useUsers()
   const [board, setBoard] = useState<BoardState | null>(null)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [openedTaskId, setOpenedTaskId] = useState<string | null>(null)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -88,7 +92,6 @@ export default function TasksPage() {
     }
   }, [user, loading, router])
 
-  // Initialize board from localStorage or from fetched data
   useEffect(() => {
     if (board || isLoading || isError || !tasksData) return
 
@@ -110,6 +113,7 @@ export default function TasksPage() {
     const mappedTasks: TaskCardData[] = tasksData.map(({ id, title }) => ({
       id: String(id),
       title,
+      priority: "medium",
     }))
 
     const initialBoard: BoardState = {
@@ -222,9 +226,11 @@ export default function TasksPage() {
     return null
   }
 
+  const { displayName, email, uid } = user
+
   const currentAssignee: Assignee = {
-    id: user.uid,
-    name: user.displayName || user.email || "Current user",
+    id: uid,
+    name: displayName || email || "Current user",
   }
 
   const fetchedAssignees: Assignee[] =
@@ -235,16 +241,41 @@ export default function TasksPage() {
 
   const assignees: Assignee[] = [
     currentAssignee,
-    ...fetchedAssignees.filter((assignee) => assignee.id !== currentAssignee.id),
+    ...fetchedAssignees.filter(({ id }) => id !== currentAssignee.id),
   ]
 
   const { todo: todoTasks, in_progress: inProgressTasks, review: reviewTasks, completed: completedTasks } =
     board
 
-  const { displayName, email } = user
+  const allTasks = [
+    ...todoTasks,
+    ...inProgressTasks,
+    ...reviewTasks,
+    ...completedTasks,
+  ]
+
+  const allTasksWithColumn = [
+    ...todoTasks.map((task) => ({ task, column: "todo" as ColumnId })),
+    ...inProgressTasks.map((task) => ({
+      task,
+      column: "in_progress" as ColumnId,
+    })),
+    ...reviewTasks.map((task) => ({ task, column: "review" as ColumnId })),
+    ...completedTasks.map((task) => ({
+      task,
+      column: "completed" as ColumnId,
+    })),
+  ]
+
   const authorInitial = (displayName || email || "U").trim().charAt(0).toUpperCase()
 
-  function handleCreateTask({ title, description, dueDate, assigneeId }: NewTaskPayload) {
+  function handleCreateTask({
+    title,
+    description,
+    dueDate,
+    assigneeId,
+    priority,
+  }: NewTaskPayload) {
     const trimmedTitle = title.trim()
     const trimmedDescription = description.trim()
     if (!trimmedTitle) return
@@ -261,6 +292,7 @@ export default function TasksPage() {
         description: trimmedDescription || undefined,
         dueDate: dueDate || undefined,
         assigneeInitial,
+        priority: (priority ?? "medium") as PriorityValue,
       }
 
       return {
@@ -270,6 +302,59 @@ export default function TasksPage() {
     })
   }
 
+  function handleUpdateTask({
+    title,
+    description,
+    dueDate,
+    assigneeId,
+    priority,
+  }: NewTaskPayload) {
+    if (!editingTaskId) return
+
+    const trimmedTitle = title.trim()
+    const trimmedDescription = description.trim()
+    if (!trimmedTitle) return
+
+    const assignee = assignees.find((item) => item.id === assigneeId)
+    const assigneeInitial =
+      assignee?.name?.trim().charAt(0).toUpperCase() ?? authorInitial
+
+    setBoard((prev) => {
+      if (!prev) return prev
+
+      let updated = false
+
+      const next: BoardState = (Object.keys(prev) as ColumnId[]).reduce(
+        (acc, column) => {
+          const tasks = prev[column]
+          const index = tasks.findIndex((task) => task.id === editingTaskId)
+          if (index === -1) {
+            acc[column] = tasks
+            return acc
+          }
+
+          updated = true
+          const task = tasks[index]
+          acc[column] = [
+            ...tasks.slice(0, index),
+            {
+              ...task,
+              title: trimmedTitle,
+              description: trimmedDescription || undefined,
+              dueDate: dueDate || undefined,
+              assigneeInitial,
+              priority: (priority ?? task.priority ?? "medium") as PriorityValue,
+            },
+            ...tasks.slice(index + 1),
+          ]
+          return acc
+        },
+        {} as BoardState,
+      )
+
+      return updated ? next : prev
+    })
+  }
   const today = new Date()
   const weekday = today.toLocaleDateString("en-US", { weekday: "long" })
   const day = today.toLocaleDateString("en-US", { day: "numeric" })
@@ -281,12 +366,11 @@ export default function TasksPage() {
       <Sidebar
         active="tasks"
         authorInitial={authorInitial}
-        userName={user.displayName || "User R."}
-        userEmail={user.email ?? ""}
+        userName={displayName || "User R."}
+        userEmail={email ?? ""}
         isUserMenuOpen={isUserMenuOpen}
         onToggleUserMenu={handleToggleUserMenu}
         onLogout={handleLogout}
-        onRefreshTasks={refetchTasks}
       />
 
       <div
@@ -344,43 +428,39 @@ export default function TasksPage() {
             <button
               type="button"
               onClick={handleToggleUserMenu}
-              className="flex w-full items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
+              className="flex items-center gap-3 rounded-md px-1 py-1.5 text-left hover:bg-[#F7F9FD]"
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4C4C4] text-xs font-medium text-white">
                 {authorInitial}
               </span>
               <div className="space-y-0.5">
                 <p className="text-xs font-medium text-[#000000]">
-                  {user.displayName || "User R."}
+                  {displayName || "User R."}
                 </p>
-                <p className="text-[10px] text-[#AAAAAA]">{user.email}</p>
+                <p className="text-[10px] text-[#AAAAAA]">{email}</p>
               </div>
             </button>
 
             {isUserMenuOpen && (
-              <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
-                <button
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                  onClick={() => {
-                    refetchTasks()
-                    setIsUserMenuOpen(false)
-                  }}
-                >
-                  Refresh tasks
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
-                  onClick={async () => {
-                    setIsUserMenuOpen(false)
-                    await handleLogout()
-                    setIsMobileNavOpen(false)
-                  }}
-                >
-                  Logout
-                </button>
-              </div>
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setIsUserMenuOpen(false)}
+                />
+                <div className="absolute bottom-11 left-0 z-20 w-40 rounded-md border bg-white py-1 text-xs shadow-md">
+                  <button
+                    type="button"
+                    className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
+                    onClick={async () => {
+                      setIsUserMenuOpen(false)
+                      await handleLogout()
+                      setIsMobileNavOpen(false)
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -445,6 +525,8 @@ export default function TasksPage() {
                   description={task.description}
                   dueDate={task.dueDate}
                   authorInitial={task.assigneeInitial ?? authorInitial}
+                  onClick={() => setOpenedTaskId(task.id)}
+                  onEditClick={() => setEditingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "todo", task.id)
                   }
@@ -478,6 +560,8 @@ export default function TasksPage() {
                   description={task.description}
                   dueDate={task.dueDate}
                   authorInitial={authorInitial}
+                  onClick={() => setOpenedTaskId(task.id)}
+                  onEditClick={() => setEditingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "in_progress", task.id)
                   }
@@ -513,6 +597,8 @@ export default function TasksPage() {
                   description={task.description}
                   dueDate={task.dueDate}
                   authorInitial={authorInitial}
+                  onClick={() => setOpenedTaskId(task.id)}
+                  onEditClick={() => setEditingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "review", task.id)
                   }
@@ -548,6 +634,8 @@ export default function TasksPage() {
                   description={task.description}
                   dueDate={task.dueDate}
                   authorInitial={authorInitial}
+                  onClick={() => setOpenedTaskId(task.id)}
+                  onEditClick={() => setEditingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "completed", task.id)
                   }
@@ -573,6 +661,68 @@ export default function TasksPage() {
           handleCreateTask(values)
           setIsCreateOpen(false)
         }}
+      />
+      <NewTaskModal
+        open={editingTaskId !== null}
+        assignees={assignees}
+        onClose={() => setEditingTaskId(null)}
+        onSubmit={(values) => {
+          handleUpdateTask(values)
+          setEditingTaskId(null)
+        }}
+        initialValues={
+          editingTaskId
+            ? (() => {
+                const allTasks = [
+                  ...todoTasks,
+                  ...inProgressTasks,
+                  ...reviewTasks,
+                  ...completedTasks,
+                ]
+                const current = allTasks.find((task) => task.id === editingTaskId)
+                return {
+                  title: current?.title ?? "",
+                  description: current?.description ?? "",
+                  dueDate: current?.dueDate ?? "",
+                  assigneeId: "",
+                  priority: current?.priority ?? "medium",
+                }
+              })()
+            : undefined
+        }
+        mode="edit"
+      />
+      <TaskDetailsModal
+        open={openedTaskId !== null}
+        taskId={openedTaskId}
+        titleOverride={
+          openedTaskId
+            ? allTasks.find((task) => task.id === openedTaskId)?.title
+            : undefined
+        }
+        descriptionOverride={
+          openedTaskId
+            ? allTasks.find((task) => task.id === openedTaskId)?.description
+            : undefined
+        }
+        dueDateOverride={
+          openedTaskId
+            ? allTasks.find((task) => task.id === openedTaskId)?.dueDate
+            : undefined
+        }
+        priorityOverride={
+          openedTaskId
+            ? allTasks.find((task) => task.id === openedTaskId)?.priority
+            : undefined
+        }
+        statusOverride={
+          openedTaskId
+            ? allTasksWithColumn.find(
+                (item) => item.task.id === openedTaskId,
+              )?.column
+            : undefined
+        }
+        onClose={() => setOpenedTaskId(null)}
       />
     </div>
   )
