@@ -8,8 +8,9 @@ import {
   signInWithPopup,
   updateProfile,
 } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
 
-import { firebaseAuth } from "@/lib/firebase"
+import { firebaseAuth, firebaseDb } from "@/lib/firebase"
 
 type LoginPayload = {
   email: string
@@ -49,6 +50,17 @@ export function useGoogleLogin() {
       const [firstName = "", ...rest] = (user.displayName ?? "").split(" ")
       const lastName = rest.join(" ")
 
+      if (user.uid) {
+        await setDoc(
+          doc(firebaseDb, "users", user.uid),
+          {
+            displayName: user.displayName ?? "",
+            email: user.email ?? "",
+          },
+          { merge: true },
+        )
+      }
+
       return {
         token,
         user: {
@@ -72,6 +84,17 @@ export function useLogin() {
 
       const [firstName = "", ...rest] = (user.displayName ?? "").split(" ")
       const lastName = rest.join(" ")
+
+      if (user.uid) {
+        await setDoc(
+          doc(firebaseDb, "users", user.uid),
+          {
+            displayName: user.displayName ?? "",
+            email: user.email ?? "",
+          },
+          { merge: true },
+        )
+      }
 
       return {
         token,
@@ -104,6 +127,17 @@ export function useRegister() {
 
       const user = credential.user
       const token = await user.getIdToken()
+
+      if (user.uid) {
+        await setDoc(
+          doc(firebaseDb, "users", user.uid),
+          {
+            displayName: `${firstName} ${lastName}`,
+            email: user.email ?? "",
+          },
+          { merge: true },
+        )
+      }
 
       return {
         token,
