@@ -16,6 +16,7 @@ export type NewTaskFormValues = {
   description: string
   dueDate: string
   assigneeId: string
+  assigneeIds?: string[]
   priority: PriorityValue
 }
 
@@ -39,7 +40,7 @@ export function NewTaskModal({
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState("")
-  const [assigneeId, setAssigneeId] = useState<string>("")
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [priority, setPriority] = useState<PriorityValue | "">("")
 
   useEffect(() => {
@@ -47,7 +48,7 @@ export function NewTaskModal({
       setTitle("")
       setDescription("")
       setDueDate("")
-      setAssigneeId("")
+      setAssigneeIds([])
       setPriority("")
       return
     }
@@ -58,13 +59,27 @@ export function NewTaskModal({
         description: initialDescription = "",
         dueDate: initialDueDate = "",
         assigneeId: initialAssigneeId = "",
+        assigneeIds: initialAssigneeIds = [],
         priority: initialPriority = "",
       } = initialValues
+
+      const baseAssignees =
+        initialAssigneeIds && initialAssigneeIds.length > 0
+          ? initialAssigneeIds
+          : initialAssigneeId
+            ? [initialAssigneeId]
+            : []
+      const resolvedAssignees =
+        baseAssignees.length > 0
+          ? baseAssignees
+          : assignees.length > 0
+            ? [assignees[0].id]
+            : [""]
 
       setTitle(initialTitle)
       setDescription(initialDescription)
       setDueDate(initialDueDate)
-      setAssigneeId(initialAssigneeId)
+      setAssigneeIds(resolvedAssignees)
       setPriority(initialPriority || "")
       return
     }
@@ -73,10 +88,10 @@ export function NewTaskModal({
       setTitle("")
       setDescription("")
       setDueDate("")
-      setAssigneeId("")
+      setAssigneeIds([""])
       setPriority("")
     }
-  }, [open, mode, initialValues])
+  }, [open, mode, initialValues, assignees])
 
   if (!open) return null
 
@@ -85,6 +100,17 @@ export function NewTaskModal({
     const trimmedTitle = title.trim()
     if (!trimmedTitle) return
 
+    const cleanedAssigneeIds = (assigneeIds || [])
+      .map((value) => value.trim())
+      .filter(Boolean)
+
+    const finalAssigneeIds =
+      cleanedAssigneeIds.length > 0
+        ? cleanedAssigneeIds
+        : assignees.length > 0
+          ? [assignees[0].id]
+          : [""]
+
     const resolvedPriority: PriorityValue =
       (priority || initialValues?.priority || "medium") as PriorityValue
 
@@ -92,7 +118,8 @@ export function NewTaskModal({
       title: trimmedTitle,
       description,
       dueDate,
-      assigneeId: assigneeId || assignees[0]?.id || "",
+      assigneeId: finalAssigneeIds[0],
+      assigneeIds: finalAssigneeIds,
       priority: resolvedPriority,
     }
 
@@ -100,7 +127,7 @@ export function NewTaskModal({
     setTitle("")
     setDescription("")
     setDueDate("")
-    setAssigneeId("")
+    setAssigneeIds([])
     setPriority("")
   }
 
@@ -191,25 +218,64 @@ export function NewTaskModal({
               </select>
             </div>
             <div className="space-y-1 md:col-span-1">
-              <label
-                htmlFor="new-task-assignee"
-                className="text-sm font-medium text-[#121212]"
-              >
+              <label className="text-sm font-medium text-[#121212]">
                 Assignee
               </label>
-              <select
-                id="new-task-assignee"
-                value={assigneeId}
-                onChange={(event) => setAssigneeId(event.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                <option value="">Select contact</option>
-                {assignees.map((assignee) => (
-                  <option key={assignee.id} value={assignee.id}>
-                    {assignee.name}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                {assigneeIds.map((value, index) => {
+                  const usedIdsExcludingCurrent = assigneeIds.filter(
+                    (id, i) => i !== index && id,
+                  )
+                  const availableAssignees = assignees.filter(
+                    (assignee) =>
+                      !usedIdsExcludingCurrent.includes(assignee.id) ||
+                      assignee.id === value,
+                  )
+
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <select
+                        value={value}
+                        onChange={(event) => {
+                          const next = [...assigneeIds]
+                          next[index] = event.target.value
+                          setAssigneeIds(next)
+                        }}
+                        className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="">Select contact</option>
+                        {availableAssignees.map((assignee) => (
+                          <option key={assignee.id} value={assignee.id}>
+                            {assignee.name}
+                          </option>
+                        ))}
+                      </select>
+                      {assigneeIds.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-xs text-[#D23D3D]"
+                          onClick={() => {
+                            setAssigneeIds((prev) =>
+                              prev.filter((_, i) => i !== index),
+                            )
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+                {assigneeIds.length < assignees.length && (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-[#64C882]"
+                    onClick={() => setAssigneeIds((prev) => [...prev, ""])}
+                  >
+                    + Add assignee
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

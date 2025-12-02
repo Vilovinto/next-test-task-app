@@ -95,7 +95,6 @@ export function useLogin() {
     mutationFn: async ({ email, password }) => {
       let loginEmail = email
 
-      // If user typed a username (no '@'), try to resolve it to an email via Firestore
       if (!email.includes("@")) {
         const usersRef = collection(firebaseDb, "users")
         const q = query(usersRef, where("username", "==", email), limit(1))

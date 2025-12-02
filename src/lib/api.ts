@@ -1,7 +1,8 @@
-const RAW_API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? ""
-const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "").replace(/\/todos$/, "")
+import { collection, doc, getDoc, getDocs, type DocumentData } from "firebase/firestore"
 
-export type TaskStatus = "todo" | "in_progress" | "done"
+import { firebaseDb } from "@/lib/firebase"
+
+export type TaskStatus = "todo" | "in_progress" | "review" | "done"
 
 export interface Task {
   id: string
@@ -12,55 +13,52 @@ export interface Task {
   dueDate?: string
 }
 
-type JsonPlaceholderTodo = {
-  userId: number
-  id: number
-  title: string
-  completed: boolean
-}
+export async function fetchTasks(): Promise<Task[]> {
+  const snapshot = await getDocs(collection(firebaseDb, "tasks"))
 
-async function request<T>(input: string, init?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${input}`
+  return snapshot.docs.map((docSnapshot) => {
+    const data = docSnapshot.data() as DocumentData
 
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
+    const statusValue = (data.status as TaskStatus) ?? "todo"
+    const priorityValue = (data.priority as Task["priority"]) ?? "medium"
+
+    return {
+      id: docSnapshot.id,
+      title: (data.title as string) ?? "Untitled task",
+      description: (data.description as string) ?? "",
+      status: statusValue,
+      priority: priorityValue,
+      dueDate:
+        typeof data.dueDate === "string" && data.dueDate.trim().length > 0
+          ? data.dueDate
+          : undefined,
     }
   })
-
-  if (!res.ok) {
-    const message = await res.text().catch(() => res.statusText)
-    throw new Error(message || `Request failed with status ${res.status}`)
-  }
-
-  return res.json() as Promise<T>
-}
-
-export async function fetchTasks(): Promise<Task[]> {
-  const todos = await request<JsonPlaceholderTodo[]>("/todos")
-
-  return todos.map((todo) => ({
-    id: String(todo.id),
-    title: todo.title,
-    description: undefined,
-    status: todo.completed ? "done" : "todo",
-    priority: "medium",
-    dueDate: undefined,
-  }))
 }
 
 export async function fetchTask(id: string): Promise<Task> {
-  const todo = await request<JsonPlaceholderTodo>(`/todos/${id}`)
+  const ref = doc(firebaseDb, "tasks", id)
+  const snapshot = await getDoc(ref)
+
+  if (!snapshot.exists()) {
+    throw new Error("Task not found")
+  }
+
+  const data = snapshot.data() as DocumentData
+
+  const statusValue = (data.status as TaskStatus) ?? "todo"
+  const priorityValue = (data.priority as Task["priority"]) ?? "medium"
 
   return {
-    id: String(todo.id),
-    title: todo.title,
-    description: undefined,
-    status: todo.completed ? "done" : "todo",
-    priority: "medium",
-    dueDate: undefined,
+    id: snapshot.id,
+    title: (data.title as string) ?? "Untitled task",
+    description: (data.description as string) ?? "",
+    status: statusValue,
+    priority: priorityValue,
+    dueDate:
+      typeof data.dueDate === "string" && data.dueDate.trim().length > 0
+        ? data.dueDate
+        : undefined,
   }
 }
 

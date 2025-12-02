@@ -8,18 +8,25 @@ import {
 } from "react"
 import { MoreIcon } from "@/components/icons/more-icon"
 import { ClockIcon } from "@/components/icons/clock-icon"
+import { TaskStatusIcon } from "@/components/icons/task-status-icons"
+import type { TaskStatus } from "@/lib/api"
 
 type TaskCardProps = {
   taskId: string
   title: string
   description?: string
   dueDate?: string
+  status: TaskStatus
+  priority?: "low" | "medium" | "high"
   authorInitial: string
+  assigneeInitials?: string[]
+  closedAt?: string
   onDragStart: (event: DragEvent<HTMLAnchorElement>) => void
   onDropCard: (event: DragEvent<HTMLAnchorElement>) => void
   onClick?: () => void
   onEditClick?: () => void
   onDeleteClick?: () => void
+  onApproveClick?: () => void
 }
 
 export function TaskCard({
@@ -27,12 +34,17 @@ export function TaskCard({
   title,
   description,
   dueDate,
+  status,
+  priority = "medium",
   authorInitial,
+  assigneeInitials,
+  closedAt,
   onDragStart,
   onDropCard,
   onClick,
   onEditClick,
   onDeleteClick,
+  onApproveClick,
 }: TaskCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -64,14 +76,58 @@ export function TaskCard({
   }, [isMenuOpen])
 
   let formattedDueDate = "7 March"
+  let isOverdue = false
   if (dueDate) {
     const date = new Date(dueDate)
     if (!Number.isNaN(date.getTime())) {
       const day = date.getDate()
       const month = date.toLocaleDateString("en-US", { month: "long" })
       formattedDueDate = `${day} ${month}`
+
+      const due = new Date(date)
+      due.setHours(0, 0, 0, 0)
+      if (status === "done" && closedAt) {
+        const closed = new Date(closedAt)
+        closed.setHours(0, 0, 0, 0)
+        isOverdue = closed > due
+      } else {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        isOverdue = due < today
+      }
     }
   }
+
+  const statusColorClass =
+    status === "todo"
+      ? "text-[#AAAAAA]"
+      : status === "in_progress"
+        ? "text-[#FF9F24]"
+        : status === "review"
+          ? "text-[#4B7BF5]"
+          : "text-[#64C882]"
+
+  const priorityBars =
+    priority === "low" ? 1 : priority === "medium" ? 2 : 3
+
+  const priorityColorClass =
+    priority === "low"
+      ? "bg-[#AAAAAA]"
+      : priority === "medium"
+        ? "bg-[#FF9F24]"
+        : "bg-[#D23D3D]"
+
+  const allAssigneeInitials =
+    assigneeInitials && assigneeInitials.length > 0
+      ? assigneeInitials
+      : [authorInitial]
+
+  const maxVisibleAvatars = 3
+  const visibleInitials = allAssigneeInitials.slice(0, maxVisibleAvatars)
+  const extraAssignees =
+    allAssigneeInitials.length > maxVisibleAvatars
+      ? allAssigneeInitials.length - maxVisibleAvatars
+      : 0
 
   return (
     <Link
@@ -121,6 +177,20 @@ export function TaskCard({
                         Edit task
                       </button>
                     )}
+                    {onApproveClick && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center px-3 py-2 text-left text-[#64C882] hover:bg-[#E5F7EB]"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setIsMenuOpen(false)
+                          onApproveClick()
+                        }}
+                      >
+                        Approve task
+                      </button>
+                    )}
                     {onDeleteClick && (
                       <button
                         type="button"
@@ -147,7 +217,11 @@ export function TaskCard({
           </p>
         </div>
         <div className="mt-4 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 rounded bg-[#64C882] px-2.5 py-1">
+          <div
+            className={`inline-flex items-center gap-2 rounded px-2.5 py-1 ${
+              isOverdue ? "bg-[#D23D3D]" : "bg-[#64C882]"
+            }`}
+          >
             <span className="flex h-4 w-4 items-center justify-center">
               <ClockIcon />
             </span>
@@ -155,9 +229,34 @@ export function TaskCard({
               {formattedDueDate}
             </span>
           </div>
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#C4C4C4] text-xs font-medium text-white">
-            {authorInitial}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              {Array.from({ length: priorityBars }).map((_, index) => (
+                <span
+                  key={index}
+                  className={`inline-block h-3 w-0.5 rounded-full ${priorityColorClass}`}
+                />
+              ))}
+            </span>
+            <span className={statusColorClass}>
+              <TaskStatusIcon status={status} />
+            </span>
+            <div className="flex -space-x-2">
+              {visibleInitials.map((initial, index) => (
+                <span
+                  key={`${initial}-${index}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#C4C4C4] text-xs font-medium text-white"
+                >
+                  {initial}
+                </span>
+              ))}
+              {extraAssignees > 0 && (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-white bg-[#E5F7EB] text-[10px] font-medium text-[#121212]">
+                  +{extraAssignees}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </Link>

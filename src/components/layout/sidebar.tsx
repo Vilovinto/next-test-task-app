@@ -7,17 +7,10 @@ import { SettingsIcon } from "@/components/icons/settings-icon"
 
 type SidebarProps = {
   active: "tasks" | "settings"
-  authorInitial: string
-  userName: string
-  userEmail: string
 }
 
-export function Sidebar({
-  active,
-  authorInitial,
-  userName,
-  userEmail,
-}: SidebarProps) {
+export function Sidebar({ active }: SidebarProps) {
+
   const dashboardColor =
     active === "tasks" ? "text-[#64C882]" : "text-[#AAAAAA]"
   const settingsColor =
@@ -56,16 +49,6 @@ export function Sidebar({
             <span>Settings</span>
           </Link>
         </nav>
-      </div>
-
-      <div className="mt-auto flex items-center gap-3 rounded-md px-1 py-1.5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#C4C4C4] text-xs font-medium text-white">
-          {authorInitial}
-        </span>
-        <div className="space-y-0.5">
-          <p className="text-xs font-medium text-[#000000]">{userName}</p>
-          <p className="text-[10px] text-[#AAAAAA]">{userEmail}</p>
-        </div>
       </div>
     </aside>
   )
