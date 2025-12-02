@@ -1,5 +1,5 @@
 import Link from "next/link"
-import type { DragEvent, MouseEvent } from "react"
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from "react"
 import { MoreIcon } from "@/components/icons/more-icon"
 import { ClockIcon } from "@/components/icons/clock-icon"
 
@@ -13,6 +13,7 @@ type TaskCardProps = {
   onDropCard: (event: DragEvent<HTMLAnchorElement>) => void
   onClick?: () => void
   onEditClick?: () => void
+  onDeleteClick?: () => void
 }
 
 export function TaskCard({
@@ -25,12 +26,36 @@ export function TaskCard({
   onDropCard,
   onClick,
   onEditClick,
+  onDeleteClick,
 }: TaskCardProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+
   function handleClick(event: MouseEvent<HTMLAnchorElement>) {
     if (!onClick) return
     event.preventDefault()
     onClick()
   }
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        isMenuOpen &&
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleOutsideClick)
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick)
+    }
+  }, [isMenuOpen])
 
   let formattedDueDate = "7 March"
   if (dueDate) {
@@ -61,18 +86,52 @@ export function TaskCard({
             <p className="text-[16px] font-medium leading-[24px] text-[#000000] line-clamp-2">
               {title}
             </p>
-            {onEditClick && (
-              <button
-                type="button"
-                className="ml-2 flex h-6 w-6 items-center justify-center rounded-full hover:bg-[#F5F6FA]"
-                onClick={(event) => {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  onEditClick()
-                }}
-              >
-                <MoreIcon />
-              </button>
+            {(onEditClick || onDeleteClick) && (
+              <div className="relative ml-2" ref={menuRef}>
+                <button
+                  type="button"
+                  className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[#F5F6FA]"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setIsMenuOpen((prev) => !prev)
+                  }}
+                >
+                  <MoreIcon />
+                </button>
+                {isMenuOpen && (
+                  <div className="absolute right-0 top-7 z-30 w-40 rounded-md border border-[#F5F6FA] bg-white py-1 text-sm shadow-lg">
+                    {onEditClick && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center px-3 py-2 text-left hover:bg-[#F7F9FD]"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setIsMenuOpen(false)
+                          onEditClick()
+                        }}
+                      >
+                        Edit task
+                      </button>
+                    )}
+                    {onDeleteClick && (
+                      <button
+                        type="button"
+                        className="flex w-full items-center px-3 py-2 text-left text-[#D23D3D] hover:bg-[#FDECEC]"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setIsMenuOpen(false)
+                          onDeleteClick()
+                        }}
+                      >
+                        Delete task
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <p className="text-[14px] leading-[24px] text-[rgba(18,18,18,0.6)] line-clamp-3">

@@ -9,6 +9,7 @@ import { useGoogleLogin, useLogin, type LoginResponse } from "@/hooks/useAuth"
 import { saveAuthToken } from "@/lib/auth"
 import { AuthPageShell } from "@/components/auth/auth-page-shell"
 import { useFirebaseUser } from "@/hooks/useFirebaseUser"
+import { GoogleButton } from "@/components/auth/google-button"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -54,11 +55,11 @@ export default function LoginPage() {
       title="Sign in"
       description="Enter your credentials to access your tasks."
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="space-y-1">
+      <form className="space-y-8" onSubmit={handleSubmit}>
+        <div className="space-y-3">
           <label
             htmlFor="email"
-            className="text-sm font-medium text-foreground"
+            className="text-[16px] font-medium text-foreground"
           >
             Email
           </label>
@@ -67,17 +68,17 @@ export default function LoginPage() {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="h-12 w-full rounded-md border border-input bg-background px-4 text-[15px] shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             placeholder="name@example.com"
             autoComplete="email"
             required
           />
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-3">
           <label
             htmlFor="password"
-            className="text-sm font-medium text-foreground"
+            className="text-[16px] font-medium text-foreground"
           >
             Password
           </label>
@@ -86,7 +87,7 @@ export default function LoginPage() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="h-12 w-full rounded-md border border-input bg-background px-4 text-[15px] shadow-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             placeholder="••••••••"
             autoComplete="current-password"
             required
@@ -99,21 +100,22 @@ export default function LoginPage() {
           </p>
         )}
 
-        <Button type="submit" className="w-full" disabled={isDisabled}>
+        <Button
+          type="submit"
+          className="h-12 w-full text-[15px]"
+          disabled={isDisabled}
+        >
           {isPending ? "Signing in..." : "Sign in"}
         </Button>
 
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
+        <GoogleButton
+          label="Continue with Google"
+          loadingLabel="Signing in with Google..."
           disabled={isGooglePending}
           onClick={handleGoogleSignIn}
-        >
-          {isGooglePending ? "Signing in with Google..." : "Continue with Google"}
-        </Button>
+        />
 
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           Don{"'"}t have an account?{" "}
           <Link
             href="/register"

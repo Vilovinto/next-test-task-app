@@ -23,6 +23,7 @@ import {
   type PriorityValue,
 } from "@/components/tasks/new-task-modal"
 import { TaskDetailsModal } from "@/components/tasks/task-details-modal"
+import { ConfirmModal } from "@/components/ui/confirm-modal"
 
 type ColumnId = "todo" | "in_progress" | "review" | "completed"
 
@@ -85,6 +86,7 @@ export default function TasksPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [openedTaskId, setOpenedTaskId] = useState<string | null>(null)
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -140,6 +142,7 @@ export default function TasksPage() {
   function handleToggleUserMenu() {
     setIsUserMenuOpen((prev) => !prev)
   }
+
 
   function handleTaskDragStart(
     event: DragEvent<HTMLAnchorElement>,
@@ -368,9 +371,6 @@ export default function TasksPage() {
         authorInitial={authorInitial}
         userName={displayName || "User R."}
         userEmail={email ?? ""}
-        isUserMenuOpen={isUserMenuOpen}
-        onToggleUserMenu={handleToggleUserMenu}
-        onLogout={handleLogout}
       />
 
       <div
@@ -527,6 +527,7 @@ export default function TasksPage() {
                   authorInitial={task.assigneeInitial ?? authorInitial}
                   onClick={() => setOpenedTaskId(task.id)}
                   onEditClick={() => setEditingTaskId(task.id)}
+                  onDeleteClick={() => setDeletingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "todo", task.id)
                   }
@@ -562,6 +563,7 @@ export default function TasksPage() {
                   authorInitial={authorInitial}
                   onClick={() => setOpenedTaskId(task.id)}
                   onEditClick={() => setEditingTaskId(task.id)}
+                  onDeleteClick={() => setDeletingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "in_progress", task.id)
                   }
@@ -599,6 +601,7 @@ export default function TasksPage() {
                   authorInitial={authorInitial}
                   onClick={() => setOpenedTaskId(task.id)}
                   onEditClick={() => setEditingTaskId(task.id)}
+                  onDeleteClick={() => setDeletingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "review", task.id)
                   }
@@ -636,6 +639,7 @@ export default function TasksPage() {
                   authorInitial={authorInitial}
                   onClick={() => setOpenedTaskId(task.id)}
                   onEditClick={() => setEditingTaskId(task.id)}
+                  onDeleteClick={() => setDeletingTaskId(task.id)}
                   onDragStart={(event) =>
                     handleTaskDragStart(event, "completed", task.id)
                   }
@@ -723,6 +727,32 @@ export default function TasksPage() {
             : undefined
         }
         onClose={() => setOpenedTaskId(null)}
+      />
+      <ConfirmModal
+        open={deletingTaskId !== null}
+        title="Delete task"
+        description="Are you sure you want to delete this task? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        onCancel={() => setDeletingTaskId(null)}
+        onConfirm={() => {
+          if (!deletingTaskId) return
+          setBoard((prev) => {
+            if (!prev) return prev
+            const next: BoardState = (Object.keys(prev) as ColumnId[]).reduce(
+              (acc, column) => {
+                acc[column] = prev[column].filter(
+                  (task) => task.id !== deletingTaskId,
+                )
+                return acc
+              },
+              {} as BoardState,
+            )
+            return next
+          })
+          setDeletingTaskId(null)
+          setEditingTaskId(null)
+        }}
       />
     </div>
   )

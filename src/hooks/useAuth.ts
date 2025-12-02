@@ -8,7 +8,16 @@ import {
   signInWithPopup,
   updateProfile,
 } from "firebase/auth"
-import { doc, setDoc } from "firebase/firestore"
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  query,
+  setDoc,
+  where,
+  type DocumentData,
+} from "firebase/firestore"
 
 import { firebaseAuth, firebaseDb } from "@/lib/firebase"
 
@@ -22,6 +31,7 @@ type RegisterPayload = {
   lastName: string
   email: string
   password: string
+  username?: string
 }
 
 type AuthUser = {
@@ -51,11 +61,16 @@ export function useGoogleLogin() {
       const lastName = rest.join(" ")
 
       if (user.uid) {
+        const emailLocal =
+          (user.email ?? "").includes("@")
+            ? (user.email ?? "").split("@")[0]
+            : ""
         await setDoc(
           doc(firebaseDb, "users", user.uid),
           {
             displayName: user.displayName ?? "",
             email: user.email ?? "",
+            ...(emailLocal ? { username: emailLocal } : {}),
           },
           { merge: true },
         )
@@ -78,7 +93,24 @@ export function useLogin() {
   return useMutation<LoginResponse, Error, LoginPayload>({
     mutationKey: ["auth", "login"],
     mutationFn: async ({ email, password }) => {
-      const credential = await signInWithEmailAndPassword(firebaseAuth, email, password)
+      let loginEmail = email
+
+      // If user typed a username (no '@'), try to resolve it to an email via Firestore
+      if (!email.includes("@")) {
+        const usersRef = collection(firebaseDb, "users")
+        const q = query(usersRef, where("username", "==", email), limit(1))
+        const snapshot = await getDocs(q)
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data() as DocumentData
+          loginEmail = (data.email as string) ?? loginEmail
+        }
+      }
+
+      const credential = await signInWithEmailAndPassword(
+        firebaseAuth,
+        loginEmail,
+        password,
+      )
       const user = credential.user
       const token = await user.getIdToken()
 
@@ -112,7 +144,7 @@ export function useLogin() {
 export function useRegister() {
   return useMutation<LoginResponse, Error, RegisterPayload>({
     mutationKey: ["auth", "register"],
-    mutationFn: async ({ firstName, lastName, email, password }) => {
+    mutationFn: async ({ firstName, lastName, email, password, username }) => {
       const credential = await createUserWithEmailAndPassword(
         firebaseAuth,
         email,
@@ -128,12 +160,17 @@ export function useRegister() {
       const user = credential.user
       const token = await user.getIdToken()
 
+      const usernameToSave =
+        username?.trim() ||
+        ((email ?? "").includes("@") ? email.split("@")[0] : "")
+
       if (user.uid) {
         await setDoc(
           doc(firebaseDb, "users", user.uid),
           {
             displayName: `${firstName} ${lastName}`,
             email: user.email ?? "",
+            ...(usernameToSave ? { username: usernameToSave } : {}),
           },
           { merge: true },
         )
