@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -181,7 +182,7 @@ export default function SettingsPage() {
       setCurrentPassword("")
       setPasswordModalError("")
       setIsNewPasswordOpen(true)
-    } catch (error) {
+    } catch {
       setPasswordModalError("Incorrect current password. Please try again.")
     } finally {
       setIsPasswordSubmitting(false)
@@ -202,7 +203,7 @@ export default function SettingsPage() {
       window.setTimeout(() => {
         setShowSaveToast(false)
       }, 2500)
-    } catch (error) {
+    } catch {
       setPasswordModalError("Failed to change password. Please try again.")
     } finally {
       setIsPasswordSubmitting(false)
@@ -389,9 +390,11 @@ export default function SettingsPage() {
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[#C4C4C4]">
                   {previewProfileImage ? (
-                    <img
+                    <Image
                       src={previewProfileImage}
                       alt="Profile"
+                      width={64}
+                      height={64}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -480,9 +483,11 @@ export default function SettingsPage() {
             <div className="absolute inset-[4px] rounded-full bg-white" />
             <div className="absolute inset-[10px] overflow-hidden rounded-full bg-[#C4C4C4]">
               {profileImage ? (
-                <img
+                <Image
                   src={profileImage}
                   alt="Profile"
+                  width={80}
+                  height={80}
                   className="h-full w-full object-cover"
                 />
               ) : (

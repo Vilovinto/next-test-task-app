@@ -1,5 +1,11 @@
 import Link from "next/link"
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent } from "react"
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+} from "react"
 import { MoreIcon } from "@/components/icons/more-icon"
 import { ClockIcon } from "@/components/icons/clock-icon"
 
@@ -31,7 +37,7 @@ export function TaskCard({
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
 
-  function handleClick(event: MouseEvent<HTMLAnchorElement>) {
+  function handleClick(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (!onClick) return
     event.preventDefault()
     onClick()
