@@ -3,6 +3,7 @@
 import { type DragEvent } from "react"
 import { TaskCard } from "@/components/tasks/task-card"
 import type { TaskCardData, ColumnId } from "@/types/tasks"
+import type { TaskStatus } from "@/lib/api"
 
 type TaskColumnProps = {
   title: string
@@ -41,15 +42,17 @@ export function TaskColumn({
   reviewerId,
   currentUserId,
 }: TaskColumnProps) {
-  const statusMap: Record<ColumnId, "todo" | "in_progress" | "review" | "done"> = {
+  const statusMap: Record<ColumnId, TaskStatus> = {
     todo: "todo",
     in_progress: "in_progress",
     review: "review",
+    blocked: "blocked",
+    rejected: "rejected",
     completed: "done",
   }
 
   return (
-    <div>
+    <div className="w-[260px] flex-shrink-0">
       <h2 className="mb-4 text-[16px] font-medium leading-[24px] text-[#121212]">
         {title}{" "}
         <span className="text-xs text-muted-foreground">({tasks.length})</span>

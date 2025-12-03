@@ -11,7 +11,13 @@ type TaskDetailsModalProps = {
   dueDateOverride?: string
   closedAtOverride?: string
   priorityOverride?: "low" | "medium" | "high"
-  statusOverride?: "todo" | "in_progress" | "review" | "completed"
+  statusOverride?:
+    | "todo"
+    | "in_progress"
+    | "review"
+    | "blocked"
+    | "rejected"
+    | "completed"
   createdByOverride?: string
   assigneeOverride?: string
   assigneesOverride?: string[]
@@ -70,10 +76,17 @@ export function TaskDetailsModal({
     todo: "To do",
     in_progress: "In progress",
     review: "Review",
+    blocked: "Blocked",
+    rejected: "Rejected",
     completed: "Completed",
   }
 
   const statusLabel = statusLabelMap[statusRaw] ?? statusRaw
+
+  const blockedByTitle =
+    statusRaw === "blocked"
+      ? (data as { blockedByTaskTitle?: string })?.blockedByTaskTitle ?? ""
+      : ""
 
   const priorityLabel =
     priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
@@ -128,7 +141,11 @@ export function TaskDetailsModal({
         ? "bg-[#FFF3E0] text-[#C97A16]"
         : statusRaw === "review"
           ? "bg-[#E4ECFF] text-[#4B7BF5]"
-          : "bg-[#E5F7EB] text-[#2F8F4E]"
+          : statusRaw === "blocked"
+            ? "bg-[#FDECEC] text-[#D23D3D]"
+            : statusRaw === "rejected"
+              ? "bg-[#EFE5FF] text-[#8A3FFC]"
+              : "bg-[#E5F7EB] text-[#2F8F4E]"
 
   const priorityBgClass =
     priority === "low"
@@ -206,11 +223,21 @@ export function TaskDetailsModal({
             <section className="grid gap-4 text-sm sm:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-xs uppercase text-[#AAAAAA]">Status</p>
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBgClass}`}
-                >
-                  {statusLabel}
-                </span>
+                <div className="flex flex-col gap-1">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBgClass}`}
+                  >
+                    {statusLabel}
+                  </span>
+                  {statusRaw === "blocked" && blockedByTitle && (
+                    <span className="text-xs text-[#666666]">
+                      Waiting for:{" "}
+                      <span className="font-medium text-[#121212]">
+                        {blockedByTitle}
+                      </span>
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <p className="text-xs uppercase text-[#AAAAAA]">Priority</p>

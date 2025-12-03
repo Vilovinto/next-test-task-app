@@ -105,7 +105,11 @@ export function TaskCard({
         ? "text-[#FF9F24]"
         : status === "review"
           ? "text-[#4B7BF5]"
-          : "text-[#64C882]"
+          : status === "blocked"
+            ? "text-[#D23D3D]"
+            : status === "rejected"
+              ? "text-[#8A3FFC]"
+              : "text-[#64C882]"
 
   const priorityBars =
     priority === "low" ? 1 : priority === "medium" ? 2 : 3

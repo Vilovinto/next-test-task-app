@@ -2,7 +2,13 @@ import { collection, doc, getDoc, getDocs, type DocumentData } from "firebase/fi
 
 import { firebaseDb } from "@/lib/firebase"
 
-export type TaskStatus = "todo" | "in_progress" | "review" | "done"
+export type TaskStatus =
+  | "todo"
+  | "in_progress"
+  | "review"
+  | "blocked"
+  | "rejected"
+  | "done"
 
 export interface Task {
   id: string

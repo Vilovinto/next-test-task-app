@@ -19,6 +19,7 @@ import {
 import { TaskDetailsModal } from "@/components/tasks/task-details-modal"
 import { ConfirmModal } from "@/components/ui/confirm-modal"
 import { ReviewerSelectionModal } from "@/components/tasks/reviewer-selection-modal"
+import { BlockedByModal } from "@/components/tasks/blocked-by-modal"
 import { AssigneeFilter } from "@/components/tasks/assignee-filter"
 import { NotificationsDropdown } from "@/components/tasks/notifications-dropdown"
 import { MobileNavigation } from "@/components/layout/mobile-navigation"
@@ -60,6 +61,10 @@ export default function TasksPage() {
   const [selectedReviewerId, setSelectedReviewerId] = useState<string>("")
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [blockingTaskId, setBlockingTaskId] = useState<string | null>(null)
+  const [previousBlockedColumn, setPreviousBlockedColumn] =
+    useState<ColumnId | null>(null)
+  const [selectedBlockingTaskId, setSelectedBlockingTaskId] = useState<string>("")
 
   useEffect(() => {
     if (!loading && !user) {
@@ -76,17 +81,17 @@ export default function TasksPage() {
         const snapshot = await getDoc(boardRef)
 
         if (snapshot.exists()) {
-          const data = snapshot.data() as BoardState
-          if (
-            data &&
-            data.todo &&
-            data.in_progress &&
-            data.review &&
-            data.completed
-          ) {
-            setBoard(data)
-            return
+          const raw = snapshot.data() as Partial<BoardState>
+          const normalized: BoardState = {
+            todo: raw.todo ?? [],
+            in_progress: raw.in_progress ?? [],
+            review: raw.review ?? [],
+            blocked: raw.blocked ?? [],
+            rejected: raw.rejected ?? [],
+            completed: raw.completed ?? [],
           }
+          setBoard(normalized)
+          return
         }
       } catch (error) {
         console.error("Failed to load board from Firestore", error)
@@ -102,6 +107,8 @@ export default function TasksPage() {
         todo: mappedTasks.slice(0, 3),
         in_progress: mappedTasks.slice(3, 5),
         review: mappedTasks.slice(5, 6),
+        blocked: [],
+        rejected: [],
         completed: mappedTasks.slice(6, 9),
       }
 
@@ -169,6 +176,9 @@ export default function TasksPage() {
     if (fromColumn !== "review" && targetColumn === "review") {
       setReviewingTaskId(taskId)
       setPreviousReviewColumn(fromColumn)
+    } else if (fromColumn !== "blocked" && targetColumn === "blocked") {
+      setBlockingTaskId(taskId)
+      setPreviousBlockedColumn(fromColumn)
     } else if (fromColumn !== targetColumn && board) {
       const task = board[fromColumn].find((t) => t.id === taskId)
       if (task && user) {
@@ -225,6 +235,9 @@ export default function TasksPage() {
     if (fromColumn !== "review" && targetColumn === "review") {
       setReviewingTaskId(taskId)
       setPreviousReviewColumn(fromColumn)
+    } else if (fromColumn !== "blocked" && targetColumn === "blocked") {
+      setBlockingTaskId(taskId)
+      setPreviousBlockedColumn(fromColumn)
     } else if (fromColumn !== targetColumn && board) {
       const task = board[fromColumn].find((t) => t.id === taskId)
       if (task && user) {
@@ -328,17 +341,46 @@ export default function TasksPage() {
     setSelectedReviewerId("")
   }, [reviewingTaskId, board, user, users, getAvailableReviewersForTask])
 
+  const getBlockingTaskOptions = useCallback(
+    (taskId: string | null) => {
+      if (!board || !taskId) return []
+
+      const all: TaskCardData[] = [
+        ...board.todo,
+        ...board.in_progress,
+        ...board.review,
+        ...board.blocked,
+        ...board.rejected,
+        ...board.completed,
+      ]
+
+      return all
+        .filter((task) => task.id !== taskId)
+        .map((task) => ({ id: task.id, title: task.title || "Untitled task" }))
+    },
+    [board],
+  )
+
   if (loading || !user || !board) {
     return null
   }
 
-  const { todo: todoTasks, in_progress: inProgressTasks, review: reviewTasks, completed: completedTasks } =
+  const {
+    todo: todoTasks,
+    in_progress: inProgressTasks,
+    review: reviewTasks,
+    blocked: blockedTasks,
+    rejected: rejectedTasks,
+    completed: completedTasks,
+  } =
     board
 
   const allTasks = [
     ...todoTasks,
     ...inProgressTasks,
     ...reviewTasks,
+    ...blockedTasks,
+    ...rejectedTasks,
     ...completedTasks,
   ]
 
@@ -349,6 +391,8 @@ export default function TasksPage() {
       column: "in_progress" as ColumnId,
     })),
     ...reviewTasks.map((task) => ({ task, column: "review" as ColumnId })),
+    ...blockedTasks.map((task) => ({ task, column: "blocked" as ColumnId })),
+    ...rejectedTasks.map((task) => ({ task, column: "rejected" as ColumnId })),
     ...completedTasks.map((task) => ({
       task,
       column: "completed" as ColumnId,
@@ -358,6 +402,8 @@ export default function TasksPage() {
   const filteredTodoTasks = todoTasks.filter(taskMatchesFilter)
   const filteredInProgressTasks = inProgressTasks.filter(taskMatchesFilter)
   const filteredReviewTasks = reviewTasks.filter(taskMatchesFilter)
+  const filteredBlockedTasks = blockedTasks.filter(taskMatchesFilter)
+  const filteredRejectedTasks = rejectedTasks.filter(taskMatchesFilter)
   const filteredCompletedTasks = completedTasks.filter(taskMatchesFilter)
 
   function handleConfirmReviewer() {
@@ -419,6 +465,54 @@ export default function TasksPage() {
 
     setReviewingTaskId(null)
     setPreviousReviewColumn(null)
+  }
+
+  function handleConfirmBlockedBy() {
+    if (!blockingTaskId || !selectedBlockingTaskId || !board) {
+      setBlockingTaskId(null)
+      setPreviousBlockedColumn(null)
+      setSelectedBlockingTaskId("")
+      return
+    }
+
+    const selectedTaskTitle =
+      getBlockingTaskOptions(blockingTaskId).find(
+        (task) => task.id === selectedBlockingTaskId,
+      )?.title ?? ""
+
+    setBoard((prev) => {
+      if (!prev) return prev
+
+      const next: BoardState = (Object.keys(prev) as ColumnId[]).reduce(
+        (acc, column) => {
+          const tasks = prev[column]
+          const index = tasks.findIndex((task) => task.id === blockingTaskId)
+          if (index === -1) {
+            acc[column] = tasks
+            return acc
+          }
+
+          const task = tasks[index]
+          acc[column] = [
+            ...tasks.slice(0, index),
+            {
+              ...task,
+              blockedByTaskId: selectedBlockingTaskId,
+              blockedByTaskTitle: selectedTaskTitle,
+            },
+            ...tasks.slice(index + 1),
+          ]
+          return acc
+        },
+        {} as BoardState,
+      )
+
+      return next
+    })
+
+    setBlockingTaskId(null)
+    setPreviousBlockedColumn(null)
+    setSelectedBlockingTaskId("")
   }
 
   function handleApproveTask() {
@@ -765,71 +859,103 @@ export default function TasksPage() {
           </p>
         )}
 
-        <section className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <TaskColumn
-            title="To do"
-            columnId="todo"
-            tasks={filteredTodoTasks}
-            isLoading={isLoading}
-            authorInitial={authorInitial}
-            getAssigneeInitials={getAssigneeInitials}
-            onTaskClick={setOpenedTaskId}
-            onTaskEdit={setEditingTaskId}
-            onTaskDelete={setDeletingTaskId}
-            onTaskDragStart={handleTaskDragStart}
-            onCardDrop={handleCardDrop}
-            onColumnDrop={handleColumnDrop}
-            onDragOver={handleDragOver}
-          />
-          <TaskColumn
-            title="In progress"
-            columnId="in_progress"
-            tasks={filteredInProgressTasks}
-            isLoading={isLoading}
-            authorInitial={authorInitial}
-            getAssigneeInitials={getAssigneeInitials}
-            onTaskClick={setOpenedTaskId}
-            onTaskEdit={setEditingTaskId}
-            onTaskDelete={setDeletingTaskId}
-            onTaskDragStart={handleTaskDragStart}
-            onCardDrop={handleCardDrop}
-            onColumnDrop={handleColumnDrop}
-            onDragOver={handleDragOver}
-          />
-          <TaskColumn
-            title="Review"
-            columnId="review"
-            tasks={filteredReviewTasks}
-            isLoading={isLoading}
-            authorInitial={authorInitial}
-            getAssigneeInitials={getAssigneeInitials}
-            onTaskClick={setOpenedTaskId}
-            onTaskEdit={setEditingTaskId}
-            onTaskDelete={setDeletingTaskId}
-            onTaskApprove={setApprovingTaskId}
-            onTaskDragStart={handleTaskDragStart}
-            onCardDrop={handleCardDrop}
-            onColumnDrop={handleColumnDrop}
-            onDragOver={handleDragOver}
-            reviewerId={filteredReviewTasks.find((t) => t.reviewerId)?.reviewerId}
-            currentUserId={uid}
-          />
-          <TaskColumn
-            title="Completed"
-            columnId="completed"
-            tasks={filteredCompletedTasks}
-            isLoading={isLoading}
-            authorInitial={authorInitial}
-            getAssigneeInitials={getAssigneeInitials}
-            onTaskClick={setOpenedTaskId}
-            onTaskEdit={setEditingTaskId}
-            onTaskDelete={setDeletingTaskId}
-            onTaskDragStart={handleTaskDragStart}
-            onCardDrop={handleCardDrop}
-            onColumnDrop={handleColumnDrop}
-            onDragOver={handleDragOver}
-          />
-        </section>
+        <div className="overflow-x-auto pb-2">
+          <section className="flex min-w-max gap-8 sm:gap-10 lg:gap-12 xl:gap-16">
+            <TaskColumn
+              title="To Do"
+              columnId="todo"
+              tasks={filteredTodoTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+            />
+            <TaskColumn
+              title="In Progress"
+              columnId="in_progress"
+              tasks={filteredInProgressTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+            />
+            <TaskColumn
+              title="Blocked"
+              columnId="blocked"
+              tasks={filteredBlockedTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+            />
+            <TaskColumn
+              title="Review"
+              columnId="review"
+              tasks={filteredReviewTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskApprove={setApprovingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+              reviewerId={filteredReviewTasks.find((t) => t.reviewerId)?.reviewerId}
+              currentUserId={uid}
+            />
+            <TaskColumn
+              title="Rejected"
+              columnId="rejected"
+              tasks={filteredRejectedTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+            />
+            <TaskColumn
+              title="Completed"
+              columnId="completed"
+              tasks={filteredCompletedTasks}
+              isLoading={isLoading}
+              authorInitial={authorInitial}
+              getAssigneeInitials={getAssigneeInitials}
+              onTaskClick={setOpenedTaskId}
+              onTaskEdit={setEditingTaskId}
+              onTaskDelete={setDeletingTaskId}
+              onTaskDragStart={handleTaskDragStart}
+              onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
+              onDragOver={handleDragOver}
+            />
+          </section>
+        </div>
       </main>
       <NewTaskModal
         open={isCreateOpen}
@@ -917,9 +1043,13 @@ export default function TasksPage() {
         }
         statusOverride={
           openedTaskId
-            ? allTasksWithColumn.find(
-                (item) => item.task.id === openedTaskId,
-              )?.column
+            ? (() => {
+                const found = allTasksWithColumn.find(
+                  (item) => item.task.id === openedTaskId,
+                )
+                if (!found) return undefined
+                return found.column === "completed" ? "completed" : found.column
+              })()
             : undefined
         }
         createdByOverride={
@@ -975,6 +1105,37 @@ export default function TasksPage() {
               fromColumn,
               toColumn,
               taskId,
+              toIndex,
+            })
+          })
+        }}
+      />
+      <BlockedByModal
+        open={blockingTaskId !== null}
+        taskTitle={
+          blockingTaskId
+            ? allTasks.find((task) => task.id === blockingTaskId)?.title
+            : undefined
+        }
+        blockingTaskId={blockingTaskId}
+        selectedBlockingTaskId={selectedBlockingTaskId}
+        options={getBlockingTaskOptions(blockingTaskId)}
+        onSelect={setSelectedBlockingTaskId}
+        onCancel={() => {
+          setBlockingTaskId(null)
+          setPreviousBlockedColumn(null)
+          setSelectedBlockingTaskId("")
+        }}
+        onConfirm={handleConfirmBlockedBy}
+        onMoveBack={() => {
+          if (!blockingTaskId || !previousBlockedColumn) return
+          setBoard((prev) => {
+            if (!prev) return prev
+            const toIndex = prev[previousBlockedColumn].length
+            return moveTaskInBoard(prev, {
+              fromColumn: "blocked",
+              toColumn: previousBlockedColumn,
+              taskId: blockingTaskId,
               toIndex,
             })
           })

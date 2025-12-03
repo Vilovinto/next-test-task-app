@@ -1,4 +1,10 @@
-export type ColumnId = "todo" | "in_progress" | "review" | "completed"
+export type ColumnId =
+  | "todo"
+  | "in_progress"
+  | "review"
+  | "blocked"
+  | "rejected"
+  | "completed"
 
 export type Notification = {
   id: string
@@ -27,6 +33,8 @@ export type TaskCardData = {
   closedAt?: string
   reviewerId?: string
   reviewerName?: string
+  blockedByTaskId?: string
+  blockedByTaskTitle?: string
 }
 
 export type BoardState = Record<ColumnId, TaskCardData[]>

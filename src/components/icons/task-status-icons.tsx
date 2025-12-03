@@ -77,6 +77,41 @@ export function TaskStatusIcon({ status }: Props) {
           />
         </svg>
       )
+    case "blocked":
+      return (
+        <svg viewBox="0 0 16 16" className={common} aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
+          <line
+            x1="5"
+            y1="5"
+            x2="11"
+            y2="11"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      )
+    case "rejected":
+      return (
+        <svg viewBox="0 0 16 16" className={common} aria-hidden="true">
+          <path
+            d="M4.5 4.5L11.5 11.5M11.5 4.5L4.5 11.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )
     case "done":
     default:
       return (

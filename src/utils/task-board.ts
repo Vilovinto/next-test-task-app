@@ -33,6 +33,14 @@ export function moveTaskInBoard(state: BoardState, args: MoveTaskArgs): BoardSta
     }
   }
 
+  if (fromColumn === "blocked" && toColumn !== "blocked") {
+    movedTask = {
+      ...movedTask,
+      blockedByTaskId: undefined,
+      blockedByTaskTitle: undefined,
+    }
+  }
+
   const targetList = fromColumn === toColumn ? [...sourceList] : [...state[toColumn]]
 
   const clampedIndex = Math.max(0, Math.min(toIndex, targetList.length))
