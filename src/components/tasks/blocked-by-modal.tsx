@@ -1,7 +1,6 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import type { TaskCardData } from "@/types/tasks"
 
 type BlockingTaskOption = {
   id: string
@@ -42,7 +41,7 @@ export function BlockedByModal({
           {taskTitle ? (
             <>
               {" "}
-              <span className="font-medium text-[#121212]">"{taskTitle}"</span>
+              <span className="font-medium text-[#121212]">&quot;{taskTitle}&quot;</span>
             </>
           ) : null}
           .
