@@ -73,7 +73,7 @@ export default function TasksPage() {
   }, [user, loading, router])
 
   useEffect(() => {
-    if (!user || !user.uid || board || isLoading || isError || !tasksData) return
+    if (!user || !user.uid || board) return
 
     async function loadBoard() {
       try {
@@ -96,6 +96,8 @@ export default function TasksPage() {
       } catch (error) {
         console.error("Failed to load board from Firestore", error)
       }
+
+      if (isLoading) return
 
       const mappedTasks: TaskCardData[] = (tasksData ?? []).map(({ id, title }) => ({
         id: String(id),
@@ -122,7 +124,7 @@ export default function TasksPage() {
     }
 
     void loadBoard()
-  }, [user, board, isLoading, isError, tasksData])
+  }, [user, board, isLoading, tasksData])
 
   useEffect(() => {
     if (!board || !user || !user.uid) return
@@ -361,7 +363,82 @@ export default function TasksPage() {
     [board],
   )
 
-  if (loading || !user || !board) {
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#F7F9FD]">
+        <div className="text-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#64C882] border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-sm font-medium text-[#AAAAAA] animate-pulse">Loading secure session...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+
+  if (!board && isLoading) {
+    return (
+      <div className="flex h-screen bg-[#F7F9FD] overflow-hidden">
+        <Sidebar active="tasks" />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#64C882] border-t-transparent mx-auto"></div>
+            <p className="mt-4 text-sm font-medium text-[#AAAAAA]">Loading your task board...</p>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!board && isError) {
+    return (
+      <div className="flex h-screen bg-[#F7F9FD] overflow-hidden">
+        <Sidebar active="tasks" />
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="max-w-md w-full text-center bg-white p-8 rounded-2xl shadow-sm border border-red-100">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Failed to load tasks</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              There was an error connecting to the database or loading tasks. Please check your Firestore database configuration or network connection.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button 
+                onClick={() => window.location.reload()} 
+                className="bg-[#64C882] hover:bg-[#52b66c] text-white w-full"
+              >
+                Reload Page
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const initialBoard: BoardState = {
+                    todo: [],
+                    in_progress: [],
+                    review: [],
+                    blocked: [],
+                    rejected: [],
+                    completed: []
+                  }
+                  setBoard(initialBoard)
+                }} 
+                className="w-full text-gray-500 hover:text-gray-700"
+              >
+                Initialize Empty Board
+              </Button>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!board) {
     return null
   }
 
